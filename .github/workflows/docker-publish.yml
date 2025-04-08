@@ -8,6 +8,7 @@ name: Publish Docker Github Package
 on:
   release:
     types: [published]
+  workflow_dispatch: # 👉 수동 실행도 가능하게 추가
 
 jobs:
   push_to_registries:
@@ -18,11 +19,11 @@ jobs:
       contents: read
 
     steps:
-      # ✅ 1. GitHub 레포지토리 체크아웃
+      # ✅ 1. 코드 체크아웃
       - name: Check out the repo
         uses: actions/checkout@v3
 
-      # ✅ 2. GHCR (GitHub Container Registry) 로그인
+      # ✅ 2. GHCR에 로그인
       - name: Log in to the Container registry
         uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
         with:
@@ -30,13 +31,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ✅ 3. Docker 이미지 메타데이터 추출 (태그, 레이블 등)
+      # ✅ 3. Docker 메타데이터 추출
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
         with:
           images: ghcr.io/${{ github.repository }}
-          tags: ${{ github.event.inputs.name }}
+          tags: ${{ github.event.release.tag_name }}
 
       # ✅ 4. Docker 이미지 빌드 및 푸시
       - name: Build and push Docker images
@@ -47,10 +48,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      # ✅ 5. (✨추가된 Step) Trivy로 보안 취약점 검사
+      # ✅ 5. Trivy를 사용한 보안 취약점 스캔
       - name: Security Scan with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.meta.outputs.tags }}
-          format: 'table'       # 콘솔 보기 좋게
-          exit-code: 0          # 취약점 있어도 빌드 실패 X (테스트용)
+          image-ref: ghcr.io/${{ github.repository }}:${{ github.event.release.tag_name }}
+          format: 'table'
+          exit-code: 0  # 필요 시 1로 바꿔서 취약점 있으면 빌드 실패 처리 가능
