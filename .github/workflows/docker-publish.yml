@@ -16,23 +16,29 @@ jobs:
     permissions:
       packages: write
       contents: read
+
     steps:
+      # ✅ 1. GitHub 레포지토리 체크아웃
       - name: Check out the repo
         uses: actions/checkout@v3
+
+      # ✅ 2. GHCR (GitHub Container Registry) 로그인
       - name: Log in to the Container registry
         uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
+      # ✅ 3. Docker 이미지 메타데이터 추출 (태그, 레이블 등)
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
         with:
           images: ghcr.io/${{ github.repository }}
-          tags: ${{ github.event.inputs.name }} 
-      
+          tags: ${{ github.event.inputs.name }}
+
+      # ✅ 4. Docker 이미지 빌드 및 푸시
       - name: Build and push Docker images
         uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         with:
@@ -40,3 +46,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      # ✅ 5. (✨추가된 Step) Trivy로 보안 취약점 검사
+      - name: Security Scan with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.tags }}
+          format: 'table'       # 콘솔 보기 좋게
+          exit-code: 0          # 취약점 있어도 빌드 실패 X (테스트용)
